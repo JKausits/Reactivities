@@ -1,6 +1,6 @@
 obj
 bin
-vscode
+.vscode
 .DS_Store
 appsettings.json
 *.db
