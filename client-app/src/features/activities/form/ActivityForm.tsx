@@ -1,38 +1,57 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useContext, useEffect } from 'react';
 import { Segment, Form, Button } from 'semantic-ui-react';
 import { IActivity } from '../../../app/models/activity';
 import { v4 as uuid } from 'uuid';
+import ActivityStore from '../../../app/stores/activityStore';
+import { observer } from 'mobx-react-lite';
+import { RouteComponentProps } from 'react-router';
+import { Link } from 'react-router-dom';
 
-interface IProps {
-  setEditMode: (editMode: boolean) => void;
-  activity: IActivity;
-  createActivity: (activity: IActivity) => void;
-  editActivity: (activity: IActivity) => void;
+interface DetailParams {
+  id: string;
 }
-
-const ActivityForm: React.FC<IProps> = ({
-  setEditMode,
-  activity: initialFormState,
-  createActivity,
-  editActivity
+const ActivityForm: React.FC<RouteComponentProps<DetailParams>> = ({
+  match,
+  history
 }) => {
-  const initializeForm = () => {
-    if (initialFormState) {
-      return initialFormState;
-    } else {
-      return {
-        id: '',
-        title: '',
-        category: '',
-        description: '',
-        date: '',
-        city: '',
-        venue: ''
-      };
-    }
-  };
+  const activityStore = useContext(ActivityStore);
 
-  const [activity, setActivity] = useState<IActivity>(initializeForm);
+  const {
+    createActivity,
+    submitting,
+    editActivity,
+    activity: initialFormState,
+    loadActivity,
+    clearActivity
+  } = activityStore;
+
+  const [activity, setActivity] = useState<IActivity>({
+    id: '',
+    title: '',
+    category: '',
+    description: '',
+    date: '',
+    city: '',
+    venue: ''
+  });
+
+  useEffect(() => {
+    if (match.params.id && activity.id.length === 0) {
+      loadActivity(match.params.id).then(
+        () => initialFormState && setActivity(initialFormState)
+      );
+    }
+
+    return () => {
+      clearActivity();
+    };
+  }, [
+    loadActivity,
+    clearActivity,
+    initialFormState,
+    match.params.id,
+    activity.id.length
+  ]);
 
   const handleInputChange = (
     event: FormEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -41,17 +60,18 @@ const ActivityForm: React.FC<IProps> = ({
     setActivity({ ...activity, [name]: value });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (activity.id.length === 0) {
       let newActivity = {
         ...activity,
         id: uuid()
       };
-      createActivity(newActivity);
+      await createActivity(newActivity);
+      history.push(`/activities/${newActivity.id}`);
     } else {
-      editActivity(activity);
+      await editActivity(activity);
+      history.push(`/activities/${activity.id}`);
     }
-    console.log(activity);
   };
 
   return (
@@ -95,18 +115,23 @@ const ActivityForm: React.FC<IProps> = ({
           placeholder='Venue'
           value={activity.venue}
         />
-        <Button floated='right' positive type='submit' content='Submit' />
         <Button
+          floated='right'
+          positive
+          type='submit'
+          content='Submit'
+          loading={submitting}
+        />
+        <Button
+          as={Link}
+          to='/activities'
           floated='right'
           type='button'
           content='Cancel'
-          onClick={() => {
-            setEditMode(false);
-          }}
         />
       </Form>
     </Segment>
   );
 };
 
-export default ActivityForm;
+export default observer(ActivityForm);
